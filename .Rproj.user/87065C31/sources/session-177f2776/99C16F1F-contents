@@ -2,7 +2,9 @@
 title: "Kriging_st_simulation"
 author: "Filippo"
 date: "2025-05-21"
-output: html_document
+output:
+  github_document:
+        html_preview: true
 ---
 
 ```{r setup, include=FALSE}
