@@ -1,0 +1,26 @@
+{
+    "id": "C4BE1023",
+    "path": "~/UCPH/thesis/kriging_st/utils.R",
+    "project_path": "utils.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1748086834491.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "679,0",
+        "scrollLine": "662"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1747747993,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1747747993,
+    "read_only": false,
+    "read_only_alternatives": []
+}

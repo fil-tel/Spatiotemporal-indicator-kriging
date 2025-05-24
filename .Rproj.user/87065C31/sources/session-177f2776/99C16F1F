@@ -1,0 +1,27 @@
+{
+    "id": "99C16F1F",
+    "path": "~/UCPH/thesis/kriging_st/kriging_st_simulation.Rmd",
+    "project_path": "kriging_st_simulation.Rmd",
+    "type": "r_markdown",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1747830097171.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "324,11",
+        "scrollLine": "317",
+        "last_setup_crc32": "177f2776bb338d19"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1748087598,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1748087598520,
+    "read_only": false,
+    "read_only_alternatives": []
+}

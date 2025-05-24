@@ -1,0 +1,6 @@
+"0","ik.grid.10<-krige(VAR~ 1, nmax=50,"
+"0","              loc=ik.df,        # Data frame"
+"0","              newdata=grid,     # Prediction location"
+"0","              model = m.f.10)"
+"1","[using ordinary kriging]
+"

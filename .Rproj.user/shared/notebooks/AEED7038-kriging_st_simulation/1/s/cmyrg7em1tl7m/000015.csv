@@ -1,0 +1,1 @@
+"0","ggplot()+geom_sf(data=st_as_sf(ik.grid.10), mapping = aes(color=var1.pred))+ scale_color_distiller(name = ""Probability"", palette = ""Spectral"")"

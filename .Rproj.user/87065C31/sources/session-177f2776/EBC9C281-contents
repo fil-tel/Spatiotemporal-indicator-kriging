@@ -1,0 +1,243 @@
+---
+title: "SpatioTemporal indicator Kriging"
+author: "Filippo"
+date: "2025-05-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Description
+
+In this document, I try to build a spatiotemporal indicator kriging model for Neanderthal tracts. I will use this paper as reference:
+https://www.pnas.org/doi/10.1073/pnas.1920051117
+
+And this as "tutorial":
+https://www.r-bloggers.com/2015/08/spatio-temporal-kriging-in-r/
+https://zia207.github.io/geospatial-r-github.io/indicator-kriging.html
+
+Here, I will try to do it for a given tract. The idea is that for each sample location I have a label, 0 or 1, according if a specific Neanderthal tract is there or not (actually more a window rather than a tract for now).
+
+I will focus only on samples younger than 11 kya, to try to emulate Fernando's paper.
+
+## Loading data
+
+```{r}
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(karyoploteR)
+  library(here)
+  library(readr)
+  library(sf)
+  library(rnaturalearth)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+  library(GenomicRanges)
+  library(ggbio)
+  library(plyranges)
+  library(stars)
+  library(igraph)
+  library(sfnetworks)
+  library(slendr)
+  library(dismo)
+  library(sp)
+  library(terra)
+  library(gstat)
+  library(spacetime)
+})
+
+source(here::here("utils.R"))
+```
+
+```{r, message=FALSE}
+# metadata
+metadata <- read_metadata()
+# binary matrix of tracts
+bin_mat <- readRDS("bin_matrix_anc_raw.rds")
+
+# Get only ancient sample that are in the binary matrix
+metadata <- metadata %>% filter(sampleId %in% colnames(bin_mat))
+```
+
+Filter matrix for given threshold.
+
+```{r}
+# Threshold 0.5
+bin_mat <- ifelse(bin_mat>0.5, 1, 0)
+bin_mat <- bin_mat[rowSums(bin_mat)!=0,]
+```
+
+Select a specific tract.
+
+```{r}
+# tract_id <- 400
+tract_ind <- bin_mat["chr2:88950001-89050000", ]
+remove(bin_mat)
+```
+
+## Map definition and grid
+
+Here I define the "world".
+
+```{r}
+map <- world(xrange = c(-25, 65), yrange = c(25, 70),  crs = "EPSG:3035")
+class(map) <- c("sf", "data.frame")
+```
+
+Define grid
+
+```{r}
+# Here I was trying to use the raster, the problem is that some of the points where endiing in the sea
+# st_sample should be a better alternative
+# raster_map <- terra::rast(map, resolution = 200e3, vals=1)
+# raster_map <- terra::mask(raster_map, map)
+# raster_map <- as.polygons(raster_map, dissolve=FALSE)
+# raster_map_sf <- st_as_sf(raster_map)
+# centroids <- st_centroid(raster_map_sf)
+
+# Some centroids are falling out of the map
+npoints <- 700
+set.seed(2001)
+centroids <- st_sample(map, size = npoints, type="regular")
+```
+
+Check
+
+```{r}
+ggplot()+geom_sf(data = map)+geom_sf(data = centroids, size=0.3)+geom_sf(data = data_UTM_sf)
+# +geom_sf(data=st_as_sf(data, coords = c("LON", "LAT"), crs = 4326))
+```
+
+## Organize data for Kriging st interpolation
+
+First, I will create a simple data frame with sample ID, age, coordinates, and label for the tract.
+
+```{r}
+data <- metadata %>% dplyr::select(sampleId, longitude, latitude, ageAverage)
+data$label <- tract_ind
+# Keep only later 11kya
+data <- data %>% filter(ageAverage<11e3)
+# Add nudge to avoid same collision of coordinates
+data$longitude <- data$longitude+rnorm(dim(data)[1], 0, 0.1)
+data$latitude <- data$latitude+rnorm(dim(data)[1], 0, 0.1)
+colnames(data) <- c("IND","LON",  "LAT", "TIME", "LABEL")
+```
+
+We now create a spatial object for our data, using the WGS84 (EPSG: 4326) coordinate reference system.
+
+```{r}
+# coordinates(data)=~LON+LAT
+# projectiontype <- "+init=epsg:4326"
+# projection(data)=CRS(projectiontype)
+# data.UTM <- spTransform(data,CRS(projectiontype))
+```
+
+```{r}
+data_sf <- st_as_sf(data, coords = c("LON", "LAT"), crs = 4326)
+# This should not matter
+data_UTM_sf <- st_transform(data_sf, crs = 4326)
+data.UTM <- as(data_UTM_sf, "Spatial")
+```
+
+
+```{r}
+# projectiontype <- "+init=epsg:4326"
+dataSP <- SpatialPoints(data.UTM@coords, crs(data.UTM)) 
+```
+
+Convert name grid to make it match with Fernando's script.
+
+```{r}
+sp.grid.UTM <- as_Spatial(centroids)
+```
+
+Check oldest.
+
+```{r}
+# oldest
+max(data$TIME)
+# youngest
+min(data$TIME)
+```
+
+
+```{r}
+oldesttime <- -10854; youngesttime <- 0; twindow <- 600; ntslots <- 19
+SPList <- CreateSpatioTemporalGrid(data.UTM, sp.grid.UTM, ntslots,oldesttime,youngesttime)
+dataTM <- SPList[[1]]; grid.ST <- SPList[[2]]; rawtimegrid <- SPList[[3]]; tm.grid <- SPList[[4]]
+```
+
+
+```{r}
+dataDF <- data.frame(LABEL=data.UTM$LABEL) 
+timeDF <- STIDF(dataSP, dataTM, data=dataDF) 
+```
+
+Visualize timeDF.
+
+```{r}
+stplot(timeDF)
+```
+It might be there is some mistake with the CRS, but I will see later.
+
+```{r}
+# var <- variogramST(LABEL~1,data=timeDF,tunit="mins",assumeRegular=F,na.omit=T, tlags = 1:50)
+# saveRDS(var, "variogramST.rds")
+var <- readRDS("variogramST.rds")
+```
+
+Get model
+
+```{r}
+anistart <- 10
+aniend <- 500
+anistep <- 10
+pars.l <- c(sill.s = 0, range.s = 0, nugget.s = 0,sill.t = 0, range.t = 0, nugget.t = 0,sill.st = 0, range.st = 0, nugget.st = 0, anis = 0)
+#pars.u <- c(sill.s = 1e7, range.s = 1e7, nugget.s = 1e7,sill.t = 1e7, range.t = 1e7, nugget.t = 1e7,sill.st = 1e7, range.st = 1e7, nugget.st = 1e7,anis = 1e7)
+finalVgmMSE <- Inf
+finalVgm <- NULL
+for( anisotropy in seq(anistart,aniend,anistep)){
+    try( {
+    metric <- vgmST("metric", joint = vgm(psill=1,"Exp", range=5e3, nugget=1e1), stAni=anisotropy)
+    metric_Vgm <- fit.StVariogram(var, metric, method="L-BFGS-B",lower=pars.l,tunit="mins")
+    mse <- attr(metric_Vgm,"MSE")
+    #print(paste("Anisotropy: ",anisotropy,"; MSE: ",mse,sep=""))
+    if(mse < finalVgmMSE){
+        finalVgmMSE <- mse
+        finalVgm <- metric_Vgm
+    }
+    }, silent = TRUE)
+}
+
+
+```
+
+
+```{r}
+# projectiontype <- "+init=epsg:4326"
+# projectiontype <- "+proj=utm +zone=33 +datum=WGS84 +units=km +no_defs"
+# timeDF1 <- spTransform(timeDF,CRS(projectiontype))
+# grid.ST1 <- spTransform(grid.ST,CRS(projectiontype))
+pred <- krigeST(LABEL~1, data=timeDF, modelList=finalVgm, newdata=grid.ST, nmax = 10)
+# saveRDS(pred, "pred_ST_local.rds")
+pred <- readRDS("pred_ST_local.rds")
+attributes(pred)$data <- BoundKriging(attributes(pred)$data, 0, 1)
+saveRDS(rawtimegrid, "rawtimegrid.rds")
+```
+
+Plot.
+
+```{r}
+print(stplot(pred, cex=0.5, main="Tract 400",colorkey=TRUE, names.attr = as.character(rawtimegrid)))
+```
+
+## Animated plot
+
+```{r}
+stplot(pred, animate=1, colorkey=TRUE, names.attr = as.character(rawtimegrid))
+```
+
+

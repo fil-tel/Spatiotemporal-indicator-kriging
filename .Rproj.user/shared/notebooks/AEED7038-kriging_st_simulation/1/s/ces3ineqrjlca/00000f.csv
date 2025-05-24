@@ -1,0 +1,2 @@
+"0","ik.grid.10$var1.pred <- pmin(1, ik.grid.10$var1.pred)"
+"0","ik.grid.10$var1.pred <- pmax(0, ik.grid.10$var1.pred)"

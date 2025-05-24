@@ -1,0 +1,8 @@
+"0","file2save <- ""variogram.rds"""
+"0","if(!file.exists(file2save)){"
+"0","  # I try 1:50 for time lags and set time in sec, that 1 sec = 1 year"
+"0","  var <- variogramST(MYVAR~1,data=timeDF,tunit=""secs"",assumeRegular=F,na.omit=T,tlags=1:50)"
+"0","  saveRDS(var, file2save)"
+"0","}else{"
+"0","  var <- readRDS(file2save)"
+"0","}"
